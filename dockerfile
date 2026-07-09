@@ -2,9 +2,10 @@ FROM php:8.2-cli
 
 WORKDIR /var/www/html
 
-# Install system dependencies
+# Install system dependencies + PHP extensions
 RUN apt-get update && apt-get install -y \
-    zip unzip curl git nodejs npm
+    zip unzip curl git nodejs npm libpq-dev libonig-dev libxml2-dev \
+    && docker-php-ext-install pdo pdo_pgsql mbstring bcmath
 
 # Install Composer
 RUN curl -sS https://getcomposer.org/installer | php -- \
@@ -19,9 +20,10 @@ RUN composer install --no-dev --optimize-autoloader
 # Install JS dependencies and build frontend
 RUN npm install && npm run build
 
-# Set Laravel permissions
-RUN cp .env.example .env && php artisan key:generate
+# Set correct permissions for Laravel
+RUN chmod -R 775 storage bootstrap/cache
 
-EXPOSE 8000
+EXPOSE 8080
 
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+# Run migrations, then start server on Render's assigned port
+CMD php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=${PORT:-8080}
